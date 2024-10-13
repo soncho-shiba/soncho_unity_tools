@@ -101,6 +101,9 @@ public class ObjectToggleTool : EditorWindow
         if (objectList[currentIndex] != null)
         {
             objectList[currentIndex].SetActive(true);
+
+            // アクティブにしたオブジェクトをヒエラルキーで選択状態にする
+            Selection.activeObject = objectList[currentIndex];
         }
     }
 }
