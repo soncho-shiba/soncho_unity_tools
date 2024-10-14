@@ -4,11 +4,9 @@ using System.IO;
 
 public class MaterialTextureReplacer : EditorWindow
 {
-    // 置き換えるフォルダのパス
-    public string folderPath = "Assets/Textures";
     // 共通フォルダのパス
     public string fallbackFolderPath = "Assets/CommonTextures";
-    public Material materialToEdit;
+    public Material[] materialsToEdit;
 
     [MenuItem("SonchoTools/Material Texture Replacer")]
     public static void ShowWindow()
@@ -20,12 +18,14 @@ public class MaterialTextureReplacer : EditorWindow
     {
         GUILayout.Label("Replace Material Textures", EditorStyles.boldLabel);
 
-        // フォルダのパスを入力
-        folderPath = EditorGUILayout.TextField("Folder Path", folderPath);
+        // 共通フォルダのパスを入力
         fallbackFolderPath = EditorGUILayout.TextField("Fallback Folder Path", fallbackFolderPath);
 
-        // 変更するマテリアルを選択
-        materialToEdit = (Material)EditorGUILayout.ObjectField("Material", materialToEdit, typeof(Material), false);
+        // 変更するマテリアルを複数選択
+        SerializedObject serializedObject = new SerializedObject(this);
+        SerializedProperty materialsProperty = serializedObject.FindProperty("materialsToEdit");
+        EditorGUILayout.PropertyField(materialsProperty, true);
+        serializedObject.ApplyModifiedProperties();
 
         if (GUILayout.Button("Replace Textures"))
         {
@@ -35,60 +35,106 @@ public class MaterialTextureReplacer : EditorWindow
 
     private void ReplaceMaterialTextures()
     {
-        if (materialToEdit == null || string.IsNullOrEmpty(folderPath))
+        if (materialsToEdit == null || materialsToEdit.Length == 0)
         {
-            Debug.LogError("Please specify a material and folder path.");
+            Debug.LogError("Please specify at least one material.");
             return;
         }
 
-        // マテリアルのプロパティを取得
-        Shader shader = materialToEdit.shader;
-        int propertyCount = ShaderUtil.GetPropertyCount(shader);
-
-        for (int i = 0; i < propertyCount; i++)
+        foreach (var material in materialsToEdit)
         {
-            // テクスチャプロパティを検索
-            if (ShaderUtil.GetPropertyType(shader, i) == ShaderUtil.ShaderPropertyType.TexEnv)
+            if (material == null)
             {
-                string propertyName = ShaderUtil.GetPropertyName(shader, i);
-                Texture texture = materialToEdit.GetTexture(propertyName);
+                continue;
+            }
 
-                if (texture != null)
+            Debug.Log($"Processing material: {material.name}");
+
+            // マテリアルのパスからTextureフォルダを取得
+            string materialPath = AssetDatabase.GetAssetPath(material);
+            string textureFolderPath = GetTextureFolderPath(materialPath);
+
+            if (string.IsNullOrEmpty(textureFolderPath))
+            {
+                Debug.LogWarning($"Texture folder not found for material {material.name}.");
+                continue;
+            }
+
+            // マテリアルのプロパティを取得
+            Shader shader = material.shader;
+            int propertyCount = ShaderUtil.GetPropertyCount(shader);
+
+            for (int i = 0; i < propertyCount; i++)
+            {
+                // テクスチャプロパティを検索
+                if (ShaderUtil.GetPropertyType(shader, i) == ShaderUtil.ShaderPropertyType.TexEnv)
                 {
-                    string textureName = texture.name;
+                    string propertyName = ShaderUtil.GetPropertyName(shader, i);
+                    Texture texture = material.GetTexture(propertyName);
 
-                    // 最初に指定フォルダで検索
-                    string texturePath = FindTextureInFolder(textureName, folderPath);
+                    if (texture != null)
+                    {
+                        string textureName = texture.name;
 
-                    // 指定フォルダに存在しなければ、共通フォルダで検索
-                    if (string.IsNullOrEmpty(texturePath))
-                    {
-                        Debug.LogWarning($"Texture '{textureName}' not found in folder '{folderPath}'. Searching fallback folder...");
-                        texturePath = FindTextureInFolder(textureName, fallbackFolderPath);
-                    }
+                        // Materialと同階層のTextureフォルダから検索
+                        string texturePath = FindTextureInFolder(textureName, textureFolderPath);
 
-                    // 見つかれば置き換え
-                    if (!string.IsNullOrEmpty(texturePath))
-                    {
-                        Texture newTexture = AssetDatabase.LoadAssetAtPath<Texture>(texturePath);
-                        materialToEdit.SetTexture(propertyName, newTexture);
-                        Debug.Log($"Replaced texture: {textureName} with {texturePath}");
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"Texture '{textureName}' not found in both folders '{folderPath}' and '{fallbackFolderPath}'.");
+                        // 指定フォルダに存在しなければ、共通フォルダで検索
+                        if (string.IsNullOrEmpty(texturePath))
+                        {
+                            Debug.LogWarning($"Texture '{textureName}' not found in folder '{textureFolderPath}'. Searching fallback folder...");
+                            texturePath = FindTextureInFolder(textureName, fallbackFolderPath);
+                        }
+
+                        // 見つかれば置き換え
+                        if (!string.IsNullOrEmpty(texturePath))
+                        {
+                            Texture newTexture = AssetDatabase.LoadAssetAtPath<Texture>(texturePath);
+                            material.SetTexture(propertyName, newTexture);
+                            Debug.Log($"Replaced texture: {textureName} with {texturePath} in material {material.name}");
+                        }
+                        else
+                        {
+                            Debug.LogWarning($"Texture '{textureName}' not found in both folders '{textureFolderPath}' and '{fallbackFolderPath}' for material {material.name}.");
+                        }
                     }
                 }
             }
+
+            // マテリアルを保存
+            EditorUtility.SetDirty(material);
         }
 
-        // マテリアルを保存
-        EditorUtility.SetDirty(materialToEdit);
         AssetDatabase.SaveAssets();
     }
 
+    // マテリアルのパスからTextureフォルダを取得
+    private string GetTextureFolderPath(string materialPath)
+    {
+        // マテリアルのフォルダの親フォルダを取得
+        string materialFolderPath = Path.GetDirectoryName(materialPath);
+
+        // 同じ階層に"Texture"という名前を含むフォルダを探す
+        string parentFolder = Path.GetDirectoryName(materialFolderPath);
+        string[] directories = Directory.GetDirectories(parentFolder, "*Texture*", SearchOption.TopDirectoryOnly);
+
+        // 見つかった最初のTextureフォルダを返す
+        if (directories.Length > 0)
+        {
+            return directories[0];
+        }
+
+        return null;
+    }
+
+    // 指定フォルダからテクスチャを探す
     private string FindTextureInFolder(string textureName, string folderPath)
     {
+        if (string.IsNullOrEmpty(folderPath))
+        {
+            return null;
+        }
+
         string[] files = Directory.GetFiles(folderPath, "*.png", SearchOption.AllDirectories);
 
         foreach (string file in files)
