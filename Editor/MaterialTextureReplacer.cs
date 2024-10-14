@@ -17,6 +17,11 @@ public class MaterialTextureReplacer : EditorWindow
     private void OnGUI()
     {
         GUILayout.Label("Replace Material Textures", EditorStyles.boldLabel);
+        GUILayout.Label("This tool automatically replaces texture references in materials by searching for textures in the \"Texture\" folder located in the same directory as the material.", EditorStyles.wordWrappedLabel);
+        GUILayout.Space(10);
+
+        GUILayout.Label("Fallback Folder Path (used if texture is not found in the material's folder)", EditorStyles.boldLabel);
+
 
         // 共通フォルダのパスを入力
         fallbackFolderPath = EditorGUILayout.TextField("Fallback Folder Path", fallbackFolderPath);
