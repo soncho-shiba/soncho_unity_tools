@@ -6,6 +6,8 @@ public class MaterialTextureReplacer : EditorWindow
 {
     // 置き換えるフォルダのパス
     public string folderPath = "Assets/Textures";
+    // 共通フォルダのパス
+    public string fallbackFolderPath = "Assets/CommonTextures";
     public Material materialToEdit;
 
     [MenuItem("SonchoTools/Material Texture Replacer")]
@@ -20,6 +22,7 @@ public class MaterialTextureReplacer : EditorWindow
 
         // フォルダのパスを入力
         folderPath = EditorGUILayout.TextField("Folder Path", folderPath);
+        fallbackFolderPath = EditorGUILayout.TextField("Fallback Folder Path", fallbackFolderPath);
 
         // 変更するマテリアルを選択
         materialToEdit = (Material)EditorGUILayout.ObjectField("Material", materialToEdit, typeof(Material), false);
@@ -53,8 +56,18 @@ public class MaterialTextureReplacer : EditorWindow
                 if (texture != null)
                 {
                     string textureName = texture.name;
+
+                    // 最初に指定フォルダで検索
                     string texturePath = FindTextureInFolder(textureName, folderPath);
 
+                    // 指定フォルダに存在しなければ、共通フォルダで検索
+                    if (string.IsNullOrEmpty(texturePath))
+                    {
+                        Debug.LogWarning($"Texture '{textureName}' not found in folder '{folderPath}'. Searching fallback folder...");
+                        texturePath = FindTextureInFolder(textureName, fallbackFolderPath);
+                    }
+
+                    // 見つかれば置き換え
                     if (!string.IsNullOrEmpty(texturePath))
                     {
                         Texture newTexture = AssetDatabase.LoadAssetAtPath<Texture>(texturePath);
@@ -63,7 +76,7 @@ public class MaterialTextureReplacer : EditorWindow
                     }
                     else
                     {
-                        Debug.LogWarning($"Texture '{textureName}' not found in folder '{folderPath}'.");
+                        Debug.LogWarning($"Texture '{textureName}' not found in both folders '{folderPath}' and '{fallbackFolderPath}'.");
                     }
                 }
             }
