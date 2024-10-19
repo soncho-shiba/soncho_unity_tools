@@ -8,6 +8,10 @@ public class GradientToTexture : EditorWindow
     int textureWidth = 256;
     int textureHeight = 16;
 
+    // 出力フォーマット選択用の列挙型
+    enum FileFormat { PNG, TGA }
+    FileFormat selectedFormat = FileFormat.PNG;  // デフォルトはPNG
+
     [MenuItem("SonchoTools/Gradient to Texture")]
     public static void ShowWindow()
     {
@@ -31,6 +35,9 @@ public class GradientToTexture : EditorWindow
         textureWidth = EditorGUILayout.IntField("Texture Width", textureWidth);
         textureHeight = EditorGUILayout.IntField("Texture Height", textureHeight);
 
+        // 出力フォーマットの選択
+        selectedFormat = (FileFormat)EditorGUILayout.EnumPopup("File Format", selectedFormat);
+
         if (GUILayout.Button("Generate and Save Texture"))
         {
             SaveGradientTexture();
@@ -51,14 +58,25 @@ public class GradientToTexture : EditorWindow
         }
         texture.Apply();
 
-        // 画像の保存
-        byte[] bytes = texture.EncodeToPNG();
-        string path = EditorUtility.SaveFilePanel("Save Gradient Texture", "", "GradientTexture.png", "png");
+        // 出力形式に応じたファイル名と拡張子を設定
+        string extension = selectedFormat == FileFormat.PNG ? "png" : "tga";
+        string path = EditorUtility.SaveFilePanel($"Save Gradient Texture as {extension.ToUpper()}", "", $"GradientTexture.{extension}", extension);
 
         if (!string.IsNullOrEmpty(path))
         {
+            // PNGかTGAの選択に応じてエンコード
+            byte[] bytes;
+            if (selectedFormat == FileFormat.PNG)
+            {
+                bytes = texture.EncodeToPNG();
+            }
+            else
+            {
+                bytes = texture.EncodeToTGA();
+            }
+
             File.WriteAllBytes(path, bytes);
-            Debug.Log("Texture saved at: " + path);
+            Debug.Log($"Texture saved at: {path}");
         }
 
         // テクスチャのインポート設定
