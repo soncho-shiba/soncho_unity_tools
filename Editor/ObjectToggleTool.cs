@@ -30,11 +30,18 @@ public class ObjectToggleTool : EditorWindow
         {
             ToggleNextObject();
         }
+        GUILayout.Space(20);
+        if (GUILayout.Button("すべてのオブジェクトをアクティブにする"))
+        {
+            ActivateAllObjects();
+        }
+        GUILayout.Space(10);
 
         if (GUILayout.Button("リストをリセット"))
         {
             ResetObjectList();
         }
+        GUILayout.Space(10);
 
         if (objectList.Count == 0)
         {
@@ -93,6 +100,17 @@ public class ObjectToggleTool : EditorWindow
         {
             objectList[currentIndex].SetActive(true);
             Selection.activeObject = objectList[currentIndex];
+        }
+    }
+
+    private void ActivateAllObjects()
+    {
+        foreach (var obj in objectList)
+        {
+            if (obj != null)
+            {
+                obj.SetActive(true);
+            }
         }
     }
 
