@@ -10,23 +10,23 @@ public class MaterialTextureReplacer : EditorWindow
     public string fallbackFolderPath = "Assets/CommonTextures";
     public List<Material> materialsToEdit = new List<Material>();
     private ReorderableList materialsList;
-    private Vector2 scrollPosition; // Scroll position for the materials list
+    private Vector2 scrollPosition; // マテリアルリストのスクロール位置
 
-    [MenuItem("SonchoTools/Material Texture Replacer")]
+    [MenuItem("SonchoTools/マテリアル テクスチャ置換ツール")]
     public static void ShowWindow()
     {
-        GetWindow<MaterialTextureReplacer>("Material Texture Replacer");
+        GetWindow<MaterialTextureReplacer>("マテリアル テクスチャ置換ツール");
     }
 
     private void OnEnable()
     {
-        // Load the saved fallback path from EditorPrefs
+        // 前回保存したフォールバックパスをEditorPrefsから読み込む
         fallbackFolderPath = EditorPrefs.GetString(FallbackFolderPathKey, "Assets/CommonTextures");
 
-        // Initialize ReorderableList
+        // ReorderableListを初期化
         materialsList = new ReorderableList(materialsToEdit, typeof(Material), true, true, true, true);
 
-        // Define how each element should be drawn
+        // 各要素の描画方法を定義
         materialsList.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) =>
         {
             materialsToEdit[index] = (Material)EditorGUI.ObjectField(
@@ -34,41 +34,41 @@ public class MaterialTextureReplacer : EditorWindow
                 materialsToEdit[index], typeof(Material), false);
         };
 
-        // Set up header for the list
+        // リストのヘッダーを設定
         materialsList.drawHeaderCallback = (Rect rect) =>
         {
-            EditorGUI.LabelField(rect, "Materials to Edit");
+            EditorGUI.LabelField(rect, "編集するマテリアル一覧");
         };
     }
 
     private void OnGUI()
     {
-        GUILayout.Label("Replace Material Textures", EditorStyles.boldLabel);
-        GUILayout.Label("This tool automatically replaces texture references in materials by searching for textures in the \"Texture\" folder located in the same directory as the material.", EditorStyles.wordWrappedLabel);
+        GUILayout.Label("マテリアル テクスチャ置換", EditorStyles.boldLabel);
+        GUILayout.Label("このツールは、マテリアルと同じディレクトリ内の「Texture」フォルダ内のテクスチャを検索して、マテリアルのテクスチャ参照を自動的に置き換えます。", EditorStyles.wordWrappedLabel);
         GUILayout.Space(10);
 
-        GUILayout.Label("Fallback Folder Path (used if texture is not found in the material's folder)", EditorStyles.boldLabel);
+        GUILayout.Label("フォールバックフォルダパス（マテリアルのフォルダ内にテクスチャが見つからない場合に使用されます）", EditorStyles.boldLabel);
 
-        // Fallback folder path input field
+        // フォールバックフォルダパスの入力フィールド
         EditorGUI.BeginChangeCheck();
-        fallbackFolderPath = EditorGUILayout.TextField("Fallback Folder Path", fallbackFolderPath);
+        fallbackFolderPath = EditorGUILayout.TextField("フォールバックフォルダパス", fallbackFolderPath);
 
-        // Save the fallback path if changed
+        // フォールバックパスが変更された場合に保存
         if (EditorGUI.EndChangeCheck())
         {
             EditorPrefs.SetString(FallbackFolderPathKey, fallbackFolderPath);
         }
 
-        // Start scroll view for the materials list
+        // マテリアルリストのスクロールビュー開始
         scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition, GUILayout.Height(200));
         materialsList.DoLayoutList();
         EditorGUILayout.EndScrollView();
 
-        // Handle drag-and-drop functionality for adding materials
+        // ドラッグ＆ドロップ機能を処理
         HandleDragAndDrop();
 
-        // Replace Textures button
-        if (GUILayout.Button("Replace Textures"))
+        // テクスチャ置換ボタン
+        if (GUILayout.Button("テクスチャを置き換える"))
         {
             ReplaceMaterialTextures();
         }
@@ -78,7 +78,7 @@ public class MaterialTextureReplacer : EditorWindow
     {
         Event evt = Event.current;
         Rect dropArea = GUILayoutUtility.GetRect(0.0f, 50.0f, GUILayout.ExpandWidth(true));
-        GUI.Box(dropArea, "Drag & Drop Materials Here", EditorStyles.helpBox);
+        GUI.Box(dropArea, "ここにマテリアルをドラッグ＆ドロップ", EditorStyles.helpBox);
 
         if (evt.type == EventType.DragUpdated || evt.type == EventType.DragPerform)
         {
@@ -111,7 +111,7 @@ public class MaterialTextureReplacer : EditorWindow
     {
         if (materialsToEdit == null || materialsToEdit.Count == 0)
         {
-            Debug.LogError("Please specify at least one material.");
+            Debug.LogError("少なくとも1つのマテリアルを指定してください。");
             return;
         }
 
@@ -122,15 +122,15 @@ public class MaterialTextureReplacer : EditorWindow
                 continue;
             }
 
-            Debug.Log($"Processing material: {material.name}");
+            Debug.Log($"マテリアルを処理中: {material.name}");
 
-            // Get texture folder from material path
+            // マテリアルパスからテクスチャフォルダを取得
             string materialPath = AssetDatabase.GetAssetPath(material);
             string textureFolderPath = GetTextureFolderPath(materialPath);
 
             if (string.IsNullOrEmpty(textureFolderPath))
             {
-                Debug.LogWarning($"Texture folder not found for material {material.name}.");
+                Debug.LogWarning($"マテリアル {material.name} に対応するテクスチャフォルダが見つかりません。");
                 continue;
             }
 
@@ -151,7 +151,7 @@ public class MaterialTextureReplacer : EditorWindow
 
                         if (string.IsNullOrEmpty(texturePath))
                         {
-                            Debug.LogWarning($"Texture '{textureName}' not found in folder '{textureFolderPath}'. Searching fallback folder...");
+                            Debug.LogWarning($"フォルダ '{textureFolderPath}' にテクスチャ '{textureName}' が見つかりませんでした。フォールバックフォルダを検索します...");
                             texturePath = FindTextureInFolder(textureName, fallbackFolderPath);
                         }
 
@@ -159,11 +159,11 @@ public class MaterialTextureReplacer : EditorWindow
                         {
                             Texture newTexture = AssetDatabase.LoadAssetAtPath<Texture>(texturePath);
                             material.SetTexture(propertyName, newTexture);
-                            Debug.Log($"Replaced texture: {textureName} with {texturePath} in material {material.name}");
+                            Debug.Log($"マテリアル {material.name} のテクスチャ '{textureName}' を '{texturePath}' に置き換えました。");
                         }
                         else
                         {
-                            Debug.LogWarning($"Texture '{textureName}' not found in both folders '{textureFolderPath}' and '{fallbackFolderPath}' for material {material.name}.");
+                            Debug.LogWarning($"マテリアル {material.name} のテクスチャ '{textureName}' が、フォルダ '{textureFolderPath}' および '{fallbackFolderPath}' のいずれにも見つかりませんでした。");
                         }
                     }
                 }
