@@ -1,17 +1,39 @@
 using UnityEngine;
 using UnityEditor;
 using System.IO;
+using UnityEditorInternal;
+using System.Collections.Generic;
 
 public class MaterialTextureReplacer : EditorWindow
 {
-    // 共通フォルダのパス
     public string fallbackFolderPath = "Assets/CommonTextures";
-    public Material[] materialsToEdit;
+    public List<Material> materialsToEdit = new List<Material>();
+    private ReorderableList materialsList;
 
     [MenuItem("SonchoTools/Material Texture Replacer")]
     public static void ShowWindow()
     {
         GetWindow<MaterialTextureReplacer>("Material Texture Replacer");
+    }
+
+    private void OnEnable()
+    {
+        // Initialize ReorderableList
+        materialsList = new ReorderableList(materialsToEdit, typeof(Material), true, true, true, true);
+
+        // Define how each element should be drawn
+        materialsList.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) =>
+        {
+            materialsToEdit[index] = (Material)EditorGUI.ObjectField(
+                new Rect(rect.x, rect.y, rect.width, EditorGUIUtility.singleLineHeight),
+                materialsToEdit[index], typeof(Material), false);
+        };
+
+        // Set up header for the list
+        materialsList.drawHeaderCallback = (Rect rect) =>
+        {
+            EditorGUI.LabelField(rect, "Materials to Edit");
+        };
     }
 
     private void OnGUI()
@@ -22,25 +44,59 @@ public class MaterialTextureReplacer : EditorWindow
 
         GUILayout.Label("Fallback Folder Path (used if texture is not found in the material's folder)", EditorStyles.boldLabel);
 
-
-        // 共通フォルダのパスを入力
+        // Fallback folder path input field
         fallbackFolderPath = EditorGUILayout.TextField("Fallback Folder Path", fallbackFolderPath);
 
-        // 変更するマテリアルを複数選択
-        SerializedObject serializedObject = new SerializedObject(this);
-        SerializedProperty materialsProperty = serializedObject.FindProperty("materialsToEdit");
-        EditorGUILayout.PropertyField(materialsProperty, true);
-        serializedObject.ApplyModifiedProperties();
+        // Draw the ReorderableList
+        materialsList.DoLayoutList();
 
+        // Handle drag-and-drop functionality for adding materials
+        HandleDragAndDrop();
+
+        // Replace Textures button
         if (GUILayout.Button("Replace Textures"))
         {
             ReplaceMaterialTextures();
         }
     }
 
+    private void HandleDragAndDrop()
+    {
+        Event evt = Event.current;
+        Rect dropArea = GUILayoutUtility.GetRect(0.0f, 50.0f, GUILayout.ExpandWidth(true));
+        GUI.Box(dropArea, "Drag & Drop Materials Here", EditorStyles.helpBox);
+
+        // Check if we are dragging over the drop area
+        if (evt.type == EventType.DragUpdated || evt.type == EventType.DragPerform)
+        {
+            if (dropArea.Contains(evt.mousePosition))
+            {
+                DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
+
+                if (evt.type == EventType.DragPerform)
+                {
+                    DragAndDrop.AcceptDrag();
+
+                    foreach (Object draggedObject in DragAndDrop.objectReferences)
+                    {
+                        if (draggedObject is Material material)
+                        {
+                            if (!materialsToEdit.Contains(material))
+                            {
+                                materialsToEdit.Add(material);
+                            }
+                        }
+                    }
+
+                    evt.Use();
+                }
+            }
+        }
+    }
+
     private void ReplaceMaterialTextures()
     {
-        if (materialsToEdit == null || materialsToEdit.Length == 0)
+        if (materialsToEdit == null || materialsToEdit.Count == 0)
         {
             Debug.LogError("Please specify at least one material.");
             return;
@@ -55,7 +111,7 @@ public class MaterialTextureReplacer : EditorWindow
 
             Debug.Log($"Processing material: {material.name}");
 
-            // マテリアルのパスからTextureフォルダを取得
+            // Get texture folder from material path
             string materialPath = AssetDatabase.GetAssetPath(material);
             string textureFolderPath = GetTextureFolderPath(materialPath);
 
@@ -65,13 +121,11 @@ public class MaterialTextureReplacer : EditorWindow
                 continue;
             }
 
-            // マテリアルのプロパティを取得
             Shader shader = material.shader;
             int propertyCount = ShaderUtil.GetPropertyCount(shader);
 
             for (int i = 0; i < propertyCount; i++)
             {
-                // テクスチャプロパティを検索
                 if (ShaderUtil.GetPropertyType(shader, i) == ShaderUtil.ShaderPropertyType.TexEnv)
                 {
                     string propertyName = ShaderUtil.GetPropertyName(shader, i);
@@ -80,18 +134,14 @@ public class MaterialTextureReplacer : EditorWindow
                     if (texture != null)
                     {
                         string textureName = texture.name;
-
-                        // Materialと同階層のTextureフォルダから検索
                         string texturePath = FindTextureInFolder(textureName, textureFolderPath);
 
-                        // 指定フォルダに存在しなければ、共通フォルダで検索
                         if (string.IsNullOrEmpty(texturePath))
                         {
                             Debug.LogWarning($"Texture '{textureName}' not found in folder '{textureFolderPath}'. Searching fallback folder...");
                             texturePath = FindTextureInFolder(textureName, fallbackFolderPath);
                         }
 
-                        // 見つかれば置き換え
                         if (!string.IsNullOrEmpty(texturePath))
                         {
                             Texture newTexture = AssetDatabase.LoadAssetAtPath<Texture>(texturePath);
@@ -106,24 +156,18 @@ public class MaterialTextureReplacer : EditorWindow
                 }
             }
 
-            // マテリアルを保存
             EditorUtility.SetDirty(material);
         }
 
         AssetDatabase.SaveAssets();
     }
 
-    // マテリアルのパスからTextureフォルダを取得
     private string GetTextureFolderPath(string materialPath)
     {
-        // マテリアルのフォルダの親フォルダを取得
         string materialFolderPath = Path.GetDirectoryName(materialPath);
-
-        // 同じ階層に"Texture"という名前を含むフォルダを探す
         string parentFolder = Path.GetDirectoryName(materialFolderPath);
         string[] directories = Directory.GetDirectories(parentFolder, "*Texture*", SearchOption.TopDirectoryOnly);
 
-        // 見つかった最初のTextureフォルダを返す
         if (directories.Length > 0)
         {
             return directories[0];
@@ -132,7 +176,6 @@ public class MaterialTextureReplacer : EditorWindow
         return null;
     }
 
-    // 指定フォルダからテクスチャを探す
     private string FindTextureInFolder(string textureName, string folderPath)
     {
         if (string.IsNullOrEmpty(folderPath))
