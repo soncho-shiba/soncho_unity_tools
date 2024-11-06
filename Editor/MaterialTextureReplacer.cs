@@ -6,6 +6,7 @@ using System.Collections.Generic;
 
 public class MaterialTextureReplacer : EditorWindow
 {
+    private const string FallbackFolderPathKey = "MaterialTextureReplacer_FallbackFolderPath";
     public string fallbackFolderPath = "Assets/CommonTextures";
     public List<Material> materialsToEdit = new List<Material>();
     private ReorderableList materialsList;
@@ -18,6 +19,9 @@ public class MaterialTextureReplacer : EditorWindow
 
     private void OnEnable()
     {
+        // Load the saved fallback path from EditorPrefs
+        fallbackFolderPath = EditorPrefs.GetString(FallbackFolderPathKey, "Assets/CommonTextures");
+
         // Initialize ReorderableList
         materialsList = new ReorderableList(materialsToEdit, typeof(Material), true, true, true, true);
 
@@ -45,7 +49,14 @@ public class MaterialTextureReplacer : EditorWindow
         GUILayout.Label("Fallback Folder Path (used if texture is not found in the material's folder)", EditorStyles.boldLabel);
 
         // Fallback folder path input field
+        EditorGUI.BeginChangeCheck();
         fallbackFolderPath = EditorGUILayout.TextField("Fallback Folder Path", fallbackFolderPath);
+
+        // Save the fallback path if changed
+        if (EditorGUI.EndChangeCheck())
+        {
+            EditorPrefs.SetString(FallbackFolderPathKey, fallbackFolderPath);
+        }
 
         // Draw the ReorderableList
         materialsList.DoLayoutList();
@@ -66,7 +77,6 @@ public class MaterialTextureReplacer : EditorWindow
         Rect dropArea = GUILayoutUtility.GetRect(0.0f, 50.0f, GUILayout.ExpandWidth(true));
         GUI.Box(dropArea, "Drag & Drop Materials Here", EditorStyles.helpBox);
 
-        // Check if we are dragging over the drop area
         if (evt.type == EventType.DragUpdated || evt.type == EventType.DragPerform)
         {
             if (dropArea.Contains(evt.mousePosition))
