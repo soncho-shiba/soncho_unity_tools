@@ -10,6 +10,7 @@ public class MaterialTextureReplacer : EditorWindow
     public string fallbackFolderPath = "Assets/CommonTextures";
     public List<Material> materialsToEdit = new List<Material>();
     private ReorderableList materialsList;
+    private Vector2 scrollPosition; // Scroll position for the materials list
 
     [MenuItem("SonchoTools/Material Texture Replacer")]
     public static void ShowWindow()
@@ -58,8 +59,10 @@ public class MaterialTextureReplacer : EditorWindow
             EditorPrefs.SetString(FallbackFolderPathKey, fallbackFolderPath);
         }
 
-        // Draw the ReorderableList
+        // Start scroll view for the materials list
+        scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition, GUILayout.Height(200));
         materialsList.DoLayoutList();
+        EditorGUILayout.EndScrollView();
 
         // Handle drag-and-drop functionality for adding materials
         HandleDragAndDrop();
